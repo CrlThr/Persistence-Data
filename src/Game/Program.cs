@@ -9,15 +9,32 @@ namespace Game
             DungeonGenerator generator = new DungeonGenerator();
             Map map = generator.GenerateDungeon(200, 50);
 
-            // Display the generated map
-            for (int y = 0; y < map.Height; y++)
+            //find a empty space to place the player
+            int Startx = 1, Starty = 1;
+            while (map.Tiles[Starty][Startx] != Tile.Empty)
             {
-                for (int x = 0; x < map.Width; x++)
+                Startx++;
+                if (Startx >= map.Width)
                 {
-                    Console.Write(map.Tiles[y][x] == Tile.Empty ? '.' : '#');
+                    Startx = 0;
+                    Starty++;
                 }
-                Console.Write("\n");
+                if (Starty >= map.Height)
+                    break;
+            }
+            Player player = new Player(Startx, Starty, '@');
+            Console.CursorVisible = false;
+
+            while (true)
+            {
+                Console.Clear();
+                Console.SetCursorPosition(0, 0);
+                player.Move(map);
+                player.HandleInput(map);
+                System.Threading.Thread.Sleep(20);
             }
         }
     }
 }
+
+
