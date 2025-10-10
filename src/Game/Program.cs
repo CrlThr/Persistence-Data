@@ -1,12 +1,12 @@
-using System;
+﻿using System;
 
 namespace Game
 {
     class Program
     {
-        static void Main()
+        static void Main(string[] args)
         {
-            Console.WriteLine("coucou");
+            Console.WriteLine("Welcome to the Game!");
         }
     }
 }
