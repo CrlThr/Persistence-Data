@@ -13,18 +13,22 @@ namespace Game
                 Width = width,
                 Height = height,
                 Tiles = new List<List<Tile>>(),
-                Rooms = new List<Room>()
+                Rooms = new List<Room>(),
+                Explored = new List<List<bool>>()
             };
 
-            // Initialize map with solid tiles
+            // Initialize map with solid tiles and unexplored areas
             for (int y = 0; y < height; y++)
             {
                 List<Tile> row = new List<Tile>();
+                List<bool> exploredRow = new List<bool>();
                 for (int x = 0; x < width; x++)
                 {
                     row.Add(Tile.Solid);
+                    exploredRow.Add(false); // All tiles start unexplored
                 }
                 map.Tiles.Add(row);
+                map.Explored.Add(exploredRow);
             }
 
             // Dungeon generation logic goes here
@@ -71,6 +75,14 @@ namespace Game
                     map.Rooms.Add(newRoom);
                     numRooms++;
                 }
+            }
+
+            // Place a random exit in one of the rooms
+            if (map.Rooms.Count > 0)
+            {
+                Room exitRoom = map.Rooms[rng.Next(map.Rooms.Count)];
+                var (centerX, centerY) = exitRoom.Center();
+                map.Tiles[(int)centerY][(int)centerX] = Tile.Exit;
             }
 
             map.Generated = true;
