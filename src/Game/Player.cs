@@ -173,7 +173,7 @@ namespace Game
             Console.Write("automatically!");
         }
 
-        public void Render(Map map)
+        public void Render(Map map, List<Enemy> enemies)
         {
             // Update visibility based on current position
             UpdateVisibility(map);
@@ -199,6 +199,10 @@ namespace Game
                         }
                         else
                         {
+                             var enemyHere = enemies.Find(e => e.X == x && e.Y == y);
+                        if (enemyHere != null && IsVisible(map, x, y))
+                            output += enemyHere.Symbol; 
+                        else
                             output += GetVisibleTileChar(map, x, y);
                         }
                     }
@@ -230,6 +234,10 @@ namespace Game
                         }
                         else
                         {
+                        var enemyHere = enemies.Find(e => e.X == x && e.Y == y);
+                        if (enemyHere != null && IsVisible(map, x, y))
+                            Console.Write(enemyHere.Symbol);
+                        else
                             Console.Write(GetVisibleTileChar(map, x, y));
                         }
                     }
@@ -238,6 +246,9 @@ namespace Game
 
             lastX = X;
             lastY = Y;
+
+            // Always update stats after rendering
+            DisplayStats(map);
         }
 
         public void UpdateStats(Map map)
@@ -317,10 +328,10 @@ namespace Game
 
                     if (enemy.Health <= 0)
                     {
-                        target = enemy; // marquer pour suppression
+                        target = enemy; 
                     }
 
-                    break; // attaque un seul ennemi
+                    break; 
                 }
             }
 

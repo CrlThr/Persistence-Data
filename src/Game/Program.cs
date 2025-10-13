@@ -131,7 +131,7 @@ namespace Game
             bool gameRunning = true;
             while (gameRunning)
             {
-                player.Render(map);
+                player.Render(map, enemyManager.Enemies);
                 bool exitReached = player.HandleInput(map, enemyManager.Enemies);
                 
                 if (exitReached)

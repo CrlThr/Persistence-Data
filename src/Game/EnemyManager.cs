@@ -7,7 +7,8 @@ namespace Game
 {
     public class EnemyManager
     {
-    private static readonly Random rng = new Random();
+        private static readonly Random rng = new Random();
+ 
         public List<Enemy> Enemies { get; private set; } = new List<Enemy>();
 
         public void AddEnemy(Enemy enemy)
