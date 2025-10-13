@@ -1,0 +1,21 @@
+
+namespace Game
+{
+    public class Enemy
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Health { get; set; }
+        public int Damage { get; set; }
+        public char Symbol { get; set; }
+
+        public Enemy(int x, int y, int health, int damage, char symbol)
+        {
+            X = x;
+            Y = y;
+            Health = health;
+            Damage = damage;
+            Symbol = symbol;
+        }
+    }
+}

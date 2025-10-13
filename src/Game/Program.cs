@@ -7,6 +7,8 @@ namespace Game
     {
         private static PlayerData? currentPlayerData;
         private static string? currentPassword;
+
+       
         
         static void Main(string[] args)
         {
@@ -112,10 +114,13 @@ namespace Game
         {
             if (currentPlayerData == null || string.IsNullOrEmpty(currentPassword))
                 return;
-            
+                
+            EnemyManager enemyManager = new EnemyManager();
             DungeonGenerator generator = new DungeonGenerator();
             Map map = generator.GenerateDungeon(200, 50);
             Player player = new Player(0, 0, '@', currentPlayerData.Name, currentPlayerData.HighScore);
+            SpawnEnemies(map, enemyManager, 5);
+            player.ResetPosition(1, 1);
             
             // Find initial starting position and set player
             var (startX, startY) = FindStartingPosition(map);
@@ -127,7 +132,7 @@ namespace Game
             while (gameRunning)
             {
                 player.Render(map);
-                bool exitReached = player.HandleInput(map);
+                bool exitReached = player.HandleInput(map, enemyManager.Enemies);
                 
                 if (exitReached)
                 {
@@ -143,6 +148,7 @@ namespace Game
                     map = generator.GenerateDungeon(200, 50);
                     var (newStartX, newStartY) = FindStartingPosition(map);
                     player.ResetPosition(newStartX, newStartY);
+                    SpawnEnemies(map, enemyManager, 5);
                     
                     // Update stats display
                     player.UpdateStats(map);
@@ -165,7 +171,7 @@ namespace Game
             
             Console.CursorVisible = true;
         }
-        
+
         static (int, int) FindStartingPosition(Map map)
         {
             // Find an empty space to place the player
@@ -182,6 +188,26 @@ namespace Game
                     break;
             }
             return (startX, startY);
+        }
+        
+        static void SpawnEnemies(Map map, EnemyManager enemyManager, int count)
+        {
+            Random rng = new Random();
+            enemyManager.Enemies.Clear(); // Vide les anciens ennemis
+
+            for (int i = 0; i < count; i++)
+            {
+                int x, y;
+                do
+                {
+                    x = rng.Next(map.Width);
+                    y = rng.Next(map.Height);
+                } while (map.Tiles[y][x] != Tile.Empty || enemyManager.GetEnemyAt(x, y) != null);
+
+                // Exemple : chaque ennemi a 30 HP, 5 dégâts, et est représenté par 'E'
+                var enemy = new Enemy(x, y, health: 30, damage: 5, symbol: 'E');
+                enemyManager.AddEnemy(enemy);
+            }
         }
     }
 }

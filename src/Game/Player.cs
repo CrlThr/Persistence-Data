@@ -1,3 +1,5 @@
+using System.Security.Cryptography.X509Certificates;
+
 namespace Game
 {
     public struct PlayerStats
@@ -5,14 +7,14 @@ namespace Game
         public string Name { get; set; }
         public int CurrentScore { get; set; }
         public int HighScore { get; set; }
-        
+
         public PlayerStats(string name, int highScore = 0)
         {
             Name = name;
             CurrentScore = 0;
             HighScore = highScore;
         }
-        
+
         public void IncrementScore()
         {
             CurrentScore++;
@@ -21,18 +23,19 @@ namespace Game
                 HighScore = CurrentScore;
             }
         }
-        
+
         public void ResetCurrentScore()
         {
             CurrentScore = 0;
         }
     }
 
-    class Player
+    public class Player
     {
         public int X { get; set; }
         public int Y { get; set; }
         public char symbol;
+        public int Health { get; set; } = 100;
         public PlayerStats Stats { get; set; }
         private int lastX = -1;
         private int lastY = -1;
@@ -76,7 +79,7 @@ namespace Game
                 {
                     int checkX = X + dx;
                     int checkY = Y + dy;
-                    
+
                     // Check if within map bounds
                     if (checkX >= 0 && checkX < map.Width && checkY >= 0 && checkY < map.Height)
                     {
@@ -132,38 +135,40 @@ namespace Game
             // Display player stats on the right side of the screen
             int statsX = map.Width + 2;
             int statsY = 2;
-            
+
             Console.SetCursorPosition(statsX, statsY);
             Console.Write($"Player: {Stats.Name}");
-            
+
             Console.SetCursorPosition(statsX, statsY + 1);
             Console.Write($"Floor: {Stats.CurrentScore}");
-            
+
             Console.SetCursorPosition(statsX, statsY + 2);
             Console.Write($"Best: {Stats.HighScore}");
-            
+
+            Console.SetCursorPosition(statsX, statsY + 3);
+            Console.Write($"Health: {Health}");
             // Display controls
             Console.SetCursorPosition(statsX, statsY + 4);
             Console.Write("Controls:");
-            
+
             Console.SetCursorPosition(statsX, statsY + 5);
             Console.Write("Arrows: Move");
-            
+
             Console.SetCursorPosition(statsX, statsY + 6);
             Console.Write("R: Reset Score");
-            
+
             Console.SetCursorPosition(statsX, statsY + 7);
             Console.Write("ESC: Quit");
-            
+
             Console.SetCursorPosition(statsX, statsY + 10);
             Console.Write("Find the X to");
-            
+
             Console.SetCursorPosition(statsX, statsY + 11);
             Console.Write("advance floors!");
-            
+
             Console.SetCursorPosition(statsX, statsY + 13);
             Console.Write("Progress is saved");
-            
+
             Console.SetCursorPosition(statsX, statsY + 14);
             Console.Write("automatically!");
         }
@@ -172,7 +177,7 @@ namespace Game
         {
             // Update visibility based on current position
             UpdateVisibility(map);
-            
+
             // Only render if this is the first time or if the player has moved
             if (!firstRender && lastX == X && lastY == Y)
                 return;
@@ -182,7 +187,7 @@ namespace Game
                 // First render: draw the entire map with fog of war
                 Console.Clear();
                 Console.SetCursorPosition(0, 0);
-                
+
                 string output = "";
                 for (int y = 0; y < map.Height; y++)
                 {
@@ -200,7 +205,7 @@ namespace Game
                     output += "\n";
                 }
                 Console.Write(output);
-                
+
                 // Display stats on first render
                 DisplayStats(map);
                 firstRender = false;
@@ -234,20 +239,20 @@ namespace Game
             lastX = X;
             lastY = Y;
         }
-        
+
         public void UpdateStats(Map map)
         {
             // Method to refresh stats display without full render
             DisplayStats(map);
         }
-        
-        public bool HandleInput(Map map)
+
+        public bool HandleInput(Map map, List<Enemy> enemies)
         {
             if (!Console.KeyAvailable)
                 return false;
 
             ConsoleKey key = Console.ReadKey(true).Key;
-            
+
             int newX = X;
             int newY = Y;
 
@@ -274,8 +279,12 @@ namespace Game
                     stats.ResetCurrentScore();
                     Stats = stats;
                     return false;
+                case ConsoleKey.A:
+                    Attack(enemies);
+                    break;
             }
-            
+
+
             // Check for collisions with walls
             if (newX >= 0 && newY >= 0 && newX < map.Width && newY < map.Height)
             {
@@ -283,7 +292,7 @@ namespace Game
                 {
                     X = newX;
                     Y = newY;
-                    
+
                     // Check if player reached the exit
                     if (map.Tiles[newY][newX] == Tile.Exit)
                     {
@@ -291,8 +300,35 @@ namespace Game
                     }
                 }
             }
-            
+
             return false; // Exit not reached
+        }
+        public void Attack(List<Enemy> enemies)
+        {
+            Enemy? target = null;
+
+            foreach (var enemy in enemies)
+            {
+                // Attaque l'ennemi sur la même case
+                if (enemy.X == X && enemy.Y == Y)
+                {
+                    enemy.Health -= 10;
+                    Console.WriteLine($"Attacked enemy! Enemy health: {enemy.Health} HP.");
+
+                    if (enemy.Health <= 0)
+                    {
+                        target = enemy; // marquer pour suppression
+                    }
+
+                    break; // attaque un seul ennemi
+                }
+            }
+
+            if (target != null)
+            {
+                enemies.Remove(target);
+                Console.WriteLine("Enemy defeated!");
+            }
         }
     }
 }
