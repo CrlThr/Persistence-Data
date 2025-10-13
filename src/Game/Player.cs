@@ -6,11 +6,11 @@ namespace Game
         public int CurrentScore { get; set; }
         public int HighScore { get; set; }
         
-        public PlayerStats(string name)
+        public PlayerStats(string name, int highScore = 0)
         {
             Name = name;
             CurrentScore = 0;
-            HighScore = 0;
+            HighScore = highScore;
         }
         
         public void IncrementScore()
@@ -40,12 +40,12 @@ namespace Game
         private const int VISION_RADIUS = 4; // How far the player can see
         private HashSet<Room> enteredRooms = new HashSet<Room>(); // Track which rooms have been entered
 
-        public Player(int x, int y, char symbol, string playerName)
+        public Player(int x, int y, char symbol, string playerName, int highScore = 0)
         {
             X = x;
             Y = y;
             this.symbol = symbol;
-            Stats = new PlayerStats(playerName);
+            Stats = new PlayerStats(playerName, highScore);
         }
 
         public void ResetPosition(int x, int y)
@@ -155,11 +155,17 @@ namespace Game
             Console.SetCursorPosition(statsX, statsY + 7);
             Console.Write("ESC: Quit");
             
-            Console.SetCursorPosition(statsX, statsY + 9);
+            Console.SetCursorPosition(statsX, statsY + 10);
             Console.Write("Find the X to");
             
-            Console.SetCursorPosition(statsX, statsY + 10);
+            Console.SetCursorPosition(statsX, statsY + 11);
             Console.Write("advance floors!");
+            
+            Console.SetCursorPosition(statsX, statsY + 13);
+            Console.Write("Progress is saved");
+            
+            Console.SetCursorPosition(statsX, statsY + 14);
+            Console.Write("automatically!");
         }
 
         public void Render(Map map)
