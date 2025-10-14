@@ -146,7 +146,8 @@ namespace Game
             Console.Write($"Best: {Stats.HighScore}");
 
             Console.SetCursorPosition(statsX, statsY + 3);
-            Console.Write($"Health: {Health}");
+            string healthBar = new string('█', Health / 10).PadRight(10, '.');
+            Console.Write($"Health: [{healthBar}] {Health} HP");
             // Display controls
             Console.SetCursorPosition(statsX, statsY + 4);
             Console.Write("Controls:");
@@ -159,6 +160,9 @@ namespace Game
 
             Console.SetCursorPosition(statsX, statsY + 7);
             Console.Write("ESC: Quit");
+
+            Console.SetCursorPosition(statsX, statsY + 8);
+            Console.Write("A: Attack");
 
             Console.SetCursorPosition(statsX, statsY + 10);
             Console.Write("Find the X to");
@@ -173,7 +177,7 @@ namespace Game
             Console.Write("automatically!");
         }
 
-        public void Render(Map map, List<Enemy> enemies)
+        public void Render(Map map, List<Enemy> enemies, EnemyManager enemyManager)
         {
             // Update visibility based on current position
             UpdateVisibility(map);
@@ -188,28 +192,40 @@ namespace Game
                 Console.Clear();
                 Console.SetCursorPosition(0, 0);
 
-                string output = "";
-                for (int y = 0; y < map.Height; y++)
+               for (int y = 0; y < map.Height; y++)
                 {
                     for (int x = 0; x < map.Width; x++)
                     {
+                        Console.SetCursorPosition(x, y);
+
                         if (x == X && y == Y)
                         {
-                            output += symbol;
+                            Console.Write(symbol);
                         }
                         else
                         {
-                             var enemyHere = enemies.Find(e => e.X == x && e.Y == y);
-                        if (enemyHere != null && IsVisible(map, x, y))
-                            output += enemyHere.Symbol; 
-                        else
-                            output += GetVisibleTileChar(map, x, y);
+                            var enemyHere = enemies.Find(e => e.X == x && e.Y == y);
+                            var healHere = enemyManager.HealPickups.FirstOrDefault(h => h.X == x && h.Y == y);
+                            if (enemyHere != null && IsVisible(map, x, y))
+                            {
+                                Console.Write(enemyHere.Symbol);
+                                Console.ResetColor();
+                            }
+                           
+                            else if(healHere != null && IsVisible(map, x, y))
+                            {
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.Write(healHere.Symbol);
+                                Console.ResetColor();
+                            }
+                            else
+                            {
+                                Console.Write(GetVisibleTileChar(map, x, y));
+                            }
                         }
                     }
-                    output += "\n";
                 }
-                Console.Write(output);
-
+                
                 // Display stats on first render
                 DisplayStats(map);
                 firstRender = false;
@@ -257,7 +273,7 @@ namespace Game
             DisplayStats(map);
         }
 
-        public bool HandleInput(Map map, List<Enemy> enemies)
+        public bool HandleInput(Map map, List<Enemy> enemies, EnemyManager enemyManager)
         {
             if (!Console.KeyAvailable)
                 return false;
@@ -291,10 +307,11 @@ namespace Game
                     Stats = stats;
                     return false;
                 case ConsoleKey.A:
-                    Attack(enemies);
+                    Attack(enemies, enemyManager);
                     break;
             }
 
+          
 
             // Check for collisions with walls
             if (newX >= 0 && newY >= 0 && newX < map.Width && newY < map.Height)
@@ -314,24 +331,34 @@ namespace Game
 
             return false; // Exit not reached
         }
-        public void Attack(List<Enemy> enemies)
+        public void Attack(List<Enemy> enemies, EnemyManager enemyManager)
         {
             Enemy? target = null;
+            Random rng = new Random();
 
-            foreach (var enemy in enemies)
+            //check the 4 directions of the player 
+            int[,] directions = new int[,] { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } };
+
+            for (int i = 0; i < 4; i++)
             {
-                // Attaque l'ennemi sur la même case
-                if (enemy.X == X && enemy.Y == Y)
+                int checkX = X + directions[i, 0];
+                int checkY = Y + directions[i, 1];
+
+                foreach (var enemy in enemies)
                 {
-                    enemy.Health -= 10;
-                    Console.WriteLine($"Attacked enemy! Enemy health: {enemy.Health} HP.");
 
-                    if (enemy.Health <= 0)
+                    if (enemy.X == checkX && enemy.Y == checkY)
                     {
-                        target = enemy; 
-                    }
+                        enemy.Health -= 15;
+                        
 
-                    break; 
+                        if (enemy.Health <= 0)
+                        {
+                            target = enemy;
+                        }
+
+                        break;
+                    }
                 }
             }
 
@@ -339,6 +366,24 @@ namespace Game
             {
                 enemies.Remove(target);
                 Console.WriteLine("Enemy defeated!");
+                enemyManager.DropHeal(target);
+            }
+            else
+            {
+                Console.SetCursorPosition(0, 9);
+                Console.WriteLine("No enemy adjacent to attack.");
+            }
+        }
+        
+        public void CheckForHeal(EnemyManager enemyManager)
+        {
+            var heal = enemyManager.HealPickups.FirstOrDefault(h => h.X == this.X && h.Y == this.Y);
+            if (heal != null)
+            {
+                Health = Math.Min(100, Health + heal.HealAmount);
+                enemyManager.HealPickups.Remove(heal);
+                Console.SetCursorPosition(0, 8);
+                Console.WriteLine($" You picked up a heal! +{heal.HealAmount} HP (Now {Health} HP)");
             }
         }
     }

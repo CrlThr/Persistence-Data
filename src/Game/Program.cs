@@ -12,6 +12,7 @@ namespace Game
         
         static void Main(string[] args)
         {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
             // Ensure Saves directory exists
             if (!System.IO.Directory.Exists("Saves"))
                 System.IO.Directory.CreateDirectory("Saves");
@@ -119,8 +120,9 @@ namespace Game
             DungeonGenerator generator = new DungeonGenerator();
             Map map = generator.GenerateDungeon(200, 50);
             Player player = new Player(0, 0, '@', currentPlayerData.Name, currentPlayerData.HighScore);
-            SpawnEnemies(map, enemyManager, 5);
+            SpawnEnemies(map, enemyManager, 3);
             player.ResetPosition(1, 1);
+            player.CheckForHeal(enemyManager);
             
             // Find initial starting position and set player
             var (startX, startY) = FindStartingPosition(map);
@@ -131,9 +133,10 @@ namespace Game
             bool gameRunning = true;
             while (gameRunning)
             {
-                player.Render(map, enemyManager.Enemies);
-                bool exitReached = player.HandleInput(map, enemyManager.Enemies);
-                
+                player.Render(map, enemyManager.Enemies, enemyManager);
+                bool exitReached = player.HandleInput(map, enemyManager.Enemies, enemyManager);
+                enemyManager.UpdateEnemies(player, map);
+              
                 if (exitReached)
                 {
                     // Increment score when exit is reached
@@ -193,7 +196,7 @@ namespace Game
         static void SpawnEnemies(Map map, EnemyManager enemyManager, int count)
         {
             Random rng = new Random();
-            enemyManager.Enemies.Clear(); // Vide les anciens ennemis
+            enemyManager.Enemies.Clear(); 
 
             for (int i = 0; i < count; i++)
             {
@@ -204,8 +207,11 @@ namespace Game
                     y = rng.Next(map.Height);
                 } while (map.Tiles[y][x] != Tile.Empty || enemyManager.GetEnemyAt(x, y) != null);
 
-                // Exemple : chaque ennemi a 30 HP, 5 dégâts, et est représenté par 'E'
-                var enemy = new Enemy(x, y, health: 30, damage: 5, symbol: 'E');
+                var enemy = new Enemy(x, y, health: 30, damage: 5, symbol: 'E')
+                {
+                    HealDropChance = 0.5, // 50% chance to drop a health potion
+                    HealAmount = 35      // Restores 20 HP
+                };
                 enemyManager.AddEnemy(enemy);
             }
         }
