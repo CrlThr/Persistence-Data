@@ -120,9 +120,11 @@ namespace Game
             DungeonGenerator generator = new DungeonGenerator();
             Map map = generator.GenerateDungeon(200, 50);
             Player player = new Player(0, 0, '@', currentPlayerData.Name, currentPlayerData.HighScore);
+            
             SpawnEnemies(map, enemyManager, 3);
             player.ResetPosition(1, 1);
             player.CheckForHeal(enemyManager);
+            player.TemporaryMessage("", ConsoleColor.White);
             
             // Find initial starting position and set player
             var (startX, startY) = FindStartingPosition(map);
@@ -207,10 +209,10 @@ namespace Game
                     y = rng.Next(map.Height);
                 } while (map.Tiles[y][x] != Tile.Empty || enemyManager.GetEnemyAt(x, y) != null);
 
-                var enemy = new Enemy(x, y, health: 30, damage: 5, symbol: 'E')
+                var enemy = new Enemy(x, y, health: 30, damage: 8, symbol: 'E')
                 {
                     HealDropChance = 0.5, // 50% chance to drop a health potion
-                    HealAmount = 35      // Restores 20 HP
+                    HealAmount = 15     // Restores 15 HP
                 };
                 enemyManager.AddEnemy(enemy);
             }

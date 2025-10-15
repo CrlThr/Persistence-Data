@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 
 namespace Game
@@ -42,6 +43,11 @@ namespace Game
         private bool firstRender = true;
         private const int VISION_RADIUS = 4; // How far the player can see
         private HashSet<Room> enteredRooms = new HashSet<Room>(); // Track which rooms have been entered
+        public DateTime messageTime = DateTime.MinValue;
+        public string messageText = "";
+        public ConsoleColor messageColor = ConsoleColor.White;
+        public bool showMessage = false;
+        
 
         public Player(int x, int y, char symbol, string playerName, int highScore = 0)
         {
@@ -211,13 +217,6 @@ namespace Game
                                 Console.Write(enemyHere.Symbol);
                                 Console.ResetColor();
                             }
-                           
-                            else if(healHere != null && IsVisible(map, x, y))
-                            {
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.Write(healHere.Symbol);
-                                Console.ResetColor();
-                            }
                             else
                             {
                                 Console.Write(GetVisibleTileChar(map, x, y));
@@ -307,7 +306,7 @@ namespace Game
                     Stats = stats;
                     return false;
                 case ConsoleKey.A:
-                    Attack(enemies, enemyManager);
+                    Attack(enemies, enemyManager, map);
                     break;
             }
 
@@ -331,7 +330,7 @@ namespace Game
 
             return false; // Exit not reached
         }
-        public void Attack(List<Enemy> enemies, EnemyManager enemyManager)
+        public void Attack(List<Enemy> enemies, EnemyManager enemyManager, Map map)
         {
             Enemy? target = null;
             Random rng = new Random();
@@ -350,7 +349,7 @@ namespace Game
                     if (enemy.X == checkX && enemy.Y == checkY)
                     {
                         enemy.Health -= 15;
-                        
+
 
                         if (enemy.Health <= 0)
                         {
@@ -365,16 +364,34 @@ namespace Game
             if (target != null)
             {
                 enemies.Remove(target);
-                Console.WriteLine("Enemy defeated!");
-                enemyManager.DropHeal(target);
+                TemporaryMessage("Enemy defeated !", ConsoleColor.White);
+                enemyManager.DropHeal(target, map, this);
             }
             else
             {
-                Console.SetCursorPosition(0, 9);
-                Console.WriteLine("No enemy adjacent to attack.");
+                TemporaryMessage("No enemy adjacent to attack.", ConsoleColor.White);
             }
         }
         
+        public void TemporaryMessage(string message, ConsoleColor color, int x = 202, int y = 18)
+        {
+            // Affiche le message à l’écran
+            Console.SetCursorPosition(x, y);
+            Console.ForegroundColor = color;
+            Console.WriteLine(message.PadRight(50)); // PadRight pour écraser les anciens textes
+            Console.ResetColor();
+
+            // Timer pour l’effacer automatiquement après 1 seconde
+            var t = new System.Timers.Timer(1000);
+            t.AutoReset = false;
+            t.Elapsed += (sender, e) =>
+            {
+                Console.SetCursorPosition(x, y);
+                Console.WriteLine(new string(' ', message.Length));
+                t.Dispose();
+            };
+            t.Start();
+        }
         public void CheckForHeal(EnemyManager enemyManager)
         {
             var heal = enemyManager.HealPickups.FirstOrDefault(h => h.X == this.X && h.Y == this.Y);
@@ -382,8 +399,6 @@ namespace Game
             {
                 Health = Math.Min(100, Health + heal.HealAmount);
                 enemyManager.HealPickups.Remove(heal);
-                Console.SetCursorPosition(0, 8);
-                Console.WriteLine($" You picked up a heal! +{heal.HealAmount} HP (Now {Health} HP)");
             }
         }
     }

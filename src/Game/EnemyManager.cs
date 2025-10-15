@@ -44,13 +44,14 @@ namespace Game
                     {
                         player.Health -= enemy.Damage;
                         enemy.LastAttackTime = DateTime.Now;
-                        Console.SetCursorPosition(0, 1);
-                        Console.WriteLine($"Enemy Attack you! -{enemy.Damage} HP");
+                        player.TemporaryMessage($"Enemy Attack you! -{enemy.Damage} HP",ConsoleColor.White);
                     }
 
                     if (player.Health <= 0)
                     {
-                        Console.SetCursorPosition(0, 2);
+                        int statsX = 200 + 2;
+                        int statsY = 2;
+                        Console.SetCursorPosition(statsX, statsY + 21);
                         Console.WriteLine("Game Over, You died!");
                         Thread.Sleep(2000);
                         Environment.Exit(0);
@@ -102,13 +103,51 @@ namespace Game
 
             }
         }
-        public void DropHeal(Enemy enemy)
+        
+        public void DropHeal(Enemy enemy, Map map, Player player)
         {
             if (rng.Next(100) < 50)
             {
-                HealPickups.Add(new HealPickup(enemy.X, enemy.Y, enemy.HealAmount));
-                Console.SetCursorPosition(0, 0);
-                Console.WriteLine($"A heal dropped at ({enemy.X},{enemy.Y})!");
+                // all directions: up, down, left, right
+                int[,] directions = new int[,] { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } };
+              
+                //list of valid positions around the enemy
+                List<(int x, int y)> validSpots = new List<(int, int)>();
+
+                for (int i = 0; i < 4; i++)
+                {
+                    int dropX = enemy.X + directions[i, 0];
+                    int dropY = enemy.Y + directions[i, 1];
+
+                    // Check if the position is within bounds and empty
+                    if (dropX >= 0 && dropX < map.Width &&
+                        dropY >= 0 && dropY < map.Height &&
+                        map.Tiles[dropY][dropX] == Tile.Empty &&
+                        !HealPickups.Any(h => h.X == dropX && h.Y == dropY)) 
+                    {
+                        validSpots.Add((dropX, dropY));
+                    }
+                }
+
+                // if no valid spots, drop nothing 
+                if (validSpots.Count == 0)
+                    return;
+                  
+                // choose a random valid spot
+                var (finalDropX, finalDropY) = validSpots[rng.Next(validSpots.Count)];
+                
+                //create and add the heal pickup
+                HealPickup heal = new HealPickup(finalDropX, finalDropY, enemy.HealAmount);
+                HealPickups.Add(heal);
+
+                Console.ForegroundColor = ConsoleColor.DarkRed;
+                Console.SetCursorPosition(finalDropX, finalDropY);
+                Console.Write(heal.Symbol); // '♥'
+                Console.ResetColor();
+
+                // text output on the right side
+                player.TemporaryMessage($"Heal collected at ({finalDropX},{finalDropY})!", ConsoleColor.White);
+               
                    
             }
         }
