@@ -320,6 +320,8 @@ namespace Game
                     X = newX;
                     Y = newY;
 
+                    CheckForHeal(enemyManager);
+
                     // Check if player reached the exit
                     if (map.Tiles[newY][newX] == Tile.Exit)
                     {
