@@ -12,6 +12,8 @@ cd src/Game
 dotnet run
 ```
 
+To start mongodb, do: `mongod --dbpath "./data" --logpath "./log/mongo.log"`
+
 ## Authors
 
 - Amélie Heinrich (aheinrich@gaming.tech)
