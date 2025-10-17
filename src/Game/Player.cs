@@ -48,6 +48,25 @@ namespace Game
         public ConsoleColor messageColor = ConsoleColor.White;
         public bool showMessage = false;
         
+        private static void SafeSetCursorPosition(int x, int y)
+        {
+            try
+            {
+                // Check bounds before setting cursor position
+                if (x >= 0 && y >= 0 && x < Console.WindowWidth && y < Console.WindowHeight)
+                {
+                    Console.SetCursorPosition(x, y);
+                }
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Silently ignore out of bounds cursor positions
+            }
+            catch (Exception)
+            {
+                // Silently ignore other console-related exceptions
+            }
+        }
 
         public Player(int x, int y, char symbol, string playerName, int highScore = 0)
         {
@@ -142,44 +161,48 @@ namespace Game
             int statsX = map.Width + 2;
             int statsY = 2;
 
-            Console.SetCursorPosition(statsX, statsY);
+            // Check if we have enough console width to display stats
+            if (statsX >= Console.WindowWidth || statsY >= Console.WindowHeight)
+                return;
+
+            SafeSetCursorPosition(statsX, statsY);
             Console.Write($"Player: {Stats.Name}");
 
-            Console.SetCursorPosition(statsX, statsY + 1);
+            SafeSetCursorPosition(statsX, statsY + 1);
             Console.Write($"Floor: {Stats.CurrentScore}");
 
-            Console.SetCursorPosition(statsX, statsY + 2);
+            SafeSetCursorPosition(statsX, statsY + 2);
             Console.Write($"Best: {Stats.HighScore}");
 
-            Console.SetCursorPosition(statsX, statsY + 3);
+            SafeSetCursorPosition(statsX, statsY + 3);
             string healthBar = new string('█', Health / 10).PadRight(10, '.');
             Console.Write($"Health: [{healthBar}] {Health} HP");
             // Display controls
-            Console.SetCursorPosition(statsX, statsY + 4);
+            SafeSetCursorPosition(statsX, statsY + 4);
             Console.Write("Controls:");
 
-            Console.SetCursorPosition(statsX, statsY + 5);
+            SafeSetCursorPosition(statsX, statsY + 5);
             Console.Write("Arrows: Move");
 
-            Console.SetCursorPosition(statsX, statsY + 6);
+            SafeSetCursorPosition(statsX, statsY + 6);
             Console.Write("R: Reset Score");
 
-            Console.SetCursorPosition(statsX, statsY + 7);
+            SafeSetCursorPosition(statsX, statsY + 7);
             Console.Write("ESC: Quit");
 
-            Console.SetCursorPosition(statsX, statsY + 8);
+            SafeSetCursorPosition(statsX, statsY + 8);
             Console.Write("A: Attack");
 
-            Console.SetCursorPosition(statsX, statsY + 10);
+            SafeSetCursorPosition(statsX, statsY + 10);
             Console.Write("Find the X to");
 
-            Console.SetCursorPosition(statsX, statsY + 11);
+            SafeSetCursorPosition(statsX, statsY + 11);
             Console.Write("advance floors!");
 
-            Console.SetCursorPosition(statsX, statsY + 13);
+            SafeSetCursorPosition(statsX, statsY + 13);
             Console.Write("Progress is saved");
 
-            Console.SetCursorPosition(statsX, statsY + 14);
+            SafeSetCursorPosition(statsX, statsY + 14);
             Console.Write("automatically!");
         }
 
@@ -196,13 +219,13 @@ namespace Game
             {
                 // First render: draw the entire map with fog of war
                 Console.Clear();
-                Console.SetCursorPosition(0, 0);
+                SafeSetCursorPosition(0, 0);
 
-               for (int y = 0; y < map.Height; y++)
+               for (int y = 0; y < Math.Min(map.Height, Console.WindowHeight - 1); y++)
                 {
-                    for (int x = 0; x < map.Width; x++)
+                    for (int x = 0; x < Math.Min(map.Width, Console.WindowWidth - 1); x++)
                     {
-                        Console.SetCursorPosition(x, y);
+                        SafeSetCursorPosition(x, y);
 
                         if (x == X && y == Y)
                         {
@@ -242,7 +265,7 @@ namespace Game
                 {
                     for (int x = minX; x <= maxX; x++)
                     {
-                        Console.SetCursorPosition(x, y);
+                        SafeSetCursorPosition(x, y);
                         if (x == X && y == Y)
                         {
                             Console.Write(symbol);
@@ -375,21 +398,33 @@ namespace Game
             }
         }
         
-        public void TemporaryMessage(string message, ConsoleColor color, int x = 202, int y = 18)
+        public void TemporaryMessage(string message, ConsoleColor color, int x = -1, int y = -1)
         {
-            // Affiche le message à l’écran
-            Console.SetCursorPosition(x, y);
+            // Use dynamic positioning if coordinates not provided or out of bounds
+            if (x == -1 || y == -1)
+            {
+                // Position message in the stats area or at a safe location
+                x = Math.Min(Console.WindowWidth - 60, 80); // Leave space for message
+                y = Math.Min(Console.WindowHeight - 5, 18);
+            }
+            
+            // Don't display message if it would go out of bounds
+            if (x >= Console.WindowWidth - message.Length || y >= Console.WindowHeight)
+                return;
+
+            // Affiche le message à l'écran
+            SafeSetCursorPosition(x, y);
             Console.ForegroundColor = color;
-            Console.WriteLine(message.PadRight(50)); // PadRight pour écraser les anciens textes
+            Console.WriteLine(message.PadRight(Math.Min(50, Console.WindowWidth - x - 1))); // PadRight pour écraser les anciens textes, but respect bounds
             Console.ResetColor();
 
-            // Timer pour l’effacer automatiquement après 1 seconde
+            // Timer pour l'effacer automatiquement après 1 seconde
             var t = new System.Timers.Timer(1000);
             t.AutoReset = false;
             t.Elapsed += (sender, e) =>
             {
-                Console.SetCursorPosition(x, y);
-                Console.WriteLine(new string(' ', message.Length));
+                SafeSetCursorPosition(x, y);
+                Console.WriteLine(new string(' ', Math.Min(message.Length, Console.WindowWidth - x - 1)));
                 t.Dispose();
             };
             t.Start();

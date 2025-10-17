@@ -261,7 +261,26 @@ namespace Game
                 
             EnemyManager enemyManager = new EnemyManager();
             DungeonGenerator generator = new DungeonGenerator();
-            Map map = generator.GenerateDungeon(200, 50);
+            
+            // Ensure the console is large enough, and generate a map that fits
+            try 
+            {
+                // Only try to resize on Windows
+                if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+                {
+                    Console.SetWindowSize(Math.Min(120, Console.LargestWindowWidth), Math.Min(40, Console.LargestWindowHeight));
+                }
+            }
+            catch
+            {
+                // If we can't resize, use current size
+            }
+            
+            // Generate map that leaves space for UI (reduce width by 40 for stats, height by 5 for margins)
+            int mapWidth = Math.Max(40, Console.WindowWidth - 40);
+            int mapHeight = Math.Max(20, Console.WindowHeight - 5);
+            
+            Map map = generator.GenerateDungeon(mapWidth, mapHeight);
             Player player = new Player(0, 0, '@', currentPlayerData.Name, currentPlayerData.HighScore);
             
             SpawnEnemies(map, enemyManager, 3);
@@ -278,9 +297,11 @@ namespace Game
             bool gameRunning = true;
             while (gameRunning)
             {
-                player.Render(map, enemyManager.Enemies, enemyManager);
-                bool exitReached = player.HandleInput(map, enemyManager.Enemies, enemyManager);
-                enemyManager.UpdateEnemies(player, map);
+                try
+                {
+                    player.Render(map, enemyManager.Enemies, enemyManager);
+                    bool exitReached = player.HandleInput(map, enemyManager.Enemies, enemyManager);
+                    enemyManager.UpdateEnemies(player, map);
               
                 if (exitReached)
                 {
@@ -293,7 +314,10 @@ namespace Game
                     await AuthManager.SavePlayerProgressAsync(currentPlayerData, currentPassword, stats.HighScore);
                     
                     // Generate new map and reset player position
-                    map = generator.GenerateDungeon(200, 50);
+                    // Use same dynamic sizing as initial map generation
+                    int newMapWidth = Math.Max(40, Console.WindowWidth - 40);
+                    int newMapHeight = Math.Max(20, Console.WindowHeight - 5);
+                    map = generator.GenerateDungeon(newMapWidth, newMapHeight);
                     var (newStartX, newStartY) = FindStartingPosition(map);
                     player.ResetPosition(newStartX, newStartY);
                     SpawnEnemies(map, enemyManager, 5);
@@ -314,7 +338,20 @@ namespace Game
                     }
                 }
                 
-                System.Threading.Thread.Sleep(20); // ~60 FPS
+                    System.Threading.Thread.Sleep(20); // ~60 FPS
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    // Handle console out of bounds exceptions gracefully
+                    // This can happen if the console window is resized during gameplay
+                    Console.Clear();
+                    player.Render(map, enemyManager.Enemies, enemyManager);
+                }
+                catch (Exception ex) when (ex.Message.Contains("console") || ex.Message.Contains("cursor"))
+                {
+                    // Handle other console-related exceptions
+                    System.Threading.Thread.Sleep(50); // Brief pause before continuing
+                }
             }
             
             Console.CursorVisible = true;

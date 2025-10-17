@@ -11,6 +11,26 @@ namespace Game
 
         public List<Enemy> Enemies { get; private set; } = new List<Enemy>();
         public List<HealPickup> HealPickups { get; private set; } = new List<HealPickup>();
+        
+        private static void SafeSetCursorPosition(int x, int y)
+        {
+            try
+            {
+                // Check bounds before setting cursor position
+                if (x >= 0 && y >= 0 && x < Console.WindowWidth && y < Console.WindowHeight)
+                {
+                    Console.SetCursorPosition(x, y);
+                }
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Silently ignore out of bounds cursor positions
+            }
+            catch (Exception)
+            {
+                // Silently ignore other console-related exceptions
+            }
+        }
 
         public void AddEnemy(Enemy enemy)
         {
@@ -44,14 +64,14 @@ namespace Game
                     {
                         player.Health -= enemy.Damage;
                         enemy.LastAttackTime = DateTime.Now;
-                        player.TemporaryMessage($"Enemy Attack you! -{enemy.Damage} HP",ConsoleColor.White);
+                        player.TemporaryMessage($"An enemy attacked you! -{enemy.Damage} HP",ConsoleColor.White);
                     }
 
                     if (player.Health <= 0)
                     {
-                        int statsX = 200 + 2;
-                        int statsY = 2;
-                        Console.SetCursorPosition(statsX, statsY + 21);
+                        int statsX = Math.Min(Console.WindowWidth - 25, 200 + 2);
+                        int statsY = Math.Min(Console.WindowHeight - 5, 23);
+                        SafeSetCursorPosition(statsX, statsY);
                         Console.WriteLine("Game Over, You died!");
                         Thread.Sleep(2000);
                         Environment.Exit(0);
@@ -141,7 +161,7 @@ namespace Game
                 HealPickups.Add(heal);
 
                 Console.ForegroundColor = ConsoleColor.DarkRed;
-                Console.SetCursorPosition(finalDropX, finalDropY);
+                SafeSetCursorPosition(finalDropX, finalDropY);
                 Console.Write(heal.Symbol); // '♥'
                 Console.ResetColor();
 
