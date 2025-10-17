@@ -1,5 +1,9 @@
 ﻿using System;
+using MongoDB.Driver;
+using MongoDB.Bson;
 using DataPersistence;
+using Game.Services;
+using Game.Models;
 
 namespace Game
 {
@@ -7,40 +11,83 @@ namespace Game
     {
         private static PlayerData? currentPlayerData;
         private static string? currentPassword;
+        private static MongoContext? mongoContext;
+        private static MongoDbService? mongoService;
 
-       
-        
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
-            // Ensure Saves directory exists
+            
+            // Try to initialize MongoDB connection, fallback to file system if it fails
+            bool useMongoDb = false;
+            try
+            {
+                Console.WriteLine("Attempting to connect to MongoDB...");
+                mongoContext = new MongoContext("mongodb://localhost:27017", "game");
+                mongoService = new MongoDbService(mongoContext);
+                
+                // Test connection with timeout
+                await mongoContext.Db.RunCommandAsync((Command<BsonDocument>)"{ping:1}");
+                
+                AuthManager.Initialize(mongoService);
+                Console.WriteLine("✓ Connected to MongoDB successfully!");
+                
+                // Display stats
+                var totalPlayers = await mongoService.GetTotalPlayersAsync();
+                Console.WriteLine($"✓ Total registered players in database: {totalPlayers}");
+                useMongoDb = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ MongoDB connection failed: {ex.Message}");
+                Console.WriteLine("✓ Falling back to local file storage...");
+                
+                // Initialize AuthManager without MongoDB service (uses file system)
+                AuthManager.Initialize(null);
+                useMongoDb = false;
+            }
+            
+            Console.WriteLine($"✓ Using {(useMongoDb ? "MongoDB" : "Local Files")} for data storage");
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadKey();
+
+            // Ensure Saves directory exists (for backward compatibility)
             if (!System.IO.Directory.Exists("Saves"))
                 System.IO.Directory.CreateDirectory("Saves");
-            
+
             while (true)
             {
-                // Authenticate user
-                currentPlayerData = AuthManager.AuthenticateUser();
-                
-                if (currentPlayerData == null)
+                try
                 {
-                    // User chose to return to main menu or authentication failed
-                    ShowMainMenu();
-                    continue;
+                    // Authenticate user
+                    currentPlayerData = await AuthManager.AuthenticateUserAsync();
+                    
+                    if (currentPlayerData == null)
+                    {
+                        // User chose to return to main menu or authentication failed
+                        ShowMainMenu();
+                        continue;
+                    }
+                    
+                    // Get password for saving (we need to store it for encryption)
+                    currentPassword = GetPasswordForSession();
+                    
+                    if (string.IsNullOrEmpty(currentPassword))
+                    {
+                        Console.WriteLine("Session cancelled. Returning to main menu...");
+                        Console.ReadKey();
+                        continue;
+                    }
+                    
+                    // Start game
+                    await StartGameAsync();
                 }
-                
-                // Get password for saving (we need to store it for encryption)
-                currentPassword = GetPasswordForSession();
-                
-                if (string.IsNullOrEmpty(currentPassword))
+                catch (Exception ex)
                 {
-                    Console.WriteLine("Session cancelled. Returning to main menu...");
+                    Console.WriteLine($"An error occurred: {ex.Message}");
+                    Console.WriteLine("Press any key to continue...");
                     Console.ReadKey();
-                    continue;
                 }
-                
-                // Start game
-                StartGame();
             }
         }
         
@@ -52,7 +99,8 @@ namespace Game
                 Console.WriteLine("=== DUNGEON EXPLORER - MAIN MENU ===");
                 Console.WriteLine();
                 Console.WriteLine("1. Login / Create Account");
-                Console.WriteLine("2. Exit Game");
+                Console.WriteLine("2. View Leaderboard");
+                Console.WriteLine("3. Exit Game");
                 Console.WriteLine();
                 Console.Write("Select an option: ");
                 
@@ -66,6 +114,10 @@ namespace Game
                         return; // Return to authentication
                     case ConsoleKey.D2:
                     case ConsoleKey.NumPad2:
+                        ShowLeaderboardAsync().GetAwaiter().GetResult();
+                        break;
+                    case ConsoleKey.D3:
+                    case ConsoleKey.NumPad3:
                         Environment.Exit(0);
                         break;
                     default:
@@ -74,6 +126,97 @@ namespace Game
                         break;
                 }
             }
+        }
+        
+        static async Task ShowLeaderboardAsync()
+        {
+            Console.Clear();
+            Console.WriteLine("=== LEADERBOARD - TOP 10 PLAYERS ===");
+            Console.WriteLine();
+            
+            if (mongoService != null)
+            {
+                // MongoDB leaderboard
+                try
+                {
+                    var leaderboard = await mongoService.GetLeaderboardAsync(10);
+                    
+                    if (leaderboard.Count == 0)
+                    {
+                        Console.WriteLine("No players found in database.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{"Rank",-5} {"Player",-20} {"High Score",-12} {"Last Played",-15}");
+                        Console.WriteLine(new string('-', 60));
+                        
+                        for (int i = 0; i < leaderboard.Count; i++)
+                        {
+                            var save = leaderboard[i];
+                            Console.WriteLine($"{i + 1,-5} {save.Username,-20} {save.HighScore,-12} {save.UpdatedAt:yyyy-MM-dd,-15}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading leaderboard: {ex.Message}");
+                }
+            }
+            else
+            {
+                // File system leaderboard
+                try
+                {
+                    Console.WriteLine("Reading local save files...");
+                    var saveFiles = Directory.GetFiles("Saves", "*.json");
+                    var playerScores = new List<(string Name, int Score, DateTime LastPlayed)>();
+                    
+                    foreach (var file in saveFiles)
+                    {
+                        try
+                        {
+                            string filename = Path.GetFileNameWithoutExtension(file);
+                            string content = File.ReadAllText(file);
+                            
+                            // Try to extract high score from encrypted file metadata (if available)
+                            // For file system, we can't easily decrypt without password, so show limited info
+                            var lastWrite = File.GetLastWriteTime(file);
+                            playerScores.Add((filename, 0, lastWrite)); // Score shows as 0 since we can't decrypt
+                        }
+                        catch
+                        {
+                            // Skip corrupted files
+                        }
+                    }
+                    
+                    if (playerScores.Count == 0)
+                    {
+                        Console.WriteLine("No local save files found.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Note: Scores not shown for local files (encrypted data)");
+                        Console.WriteLine($"{"Rank",-5} {"Player",-20} {"Score",-12} {"Last Played",-15}");
+                        Console.WriteLine(new string('-', 60));
+                        
+                        var sortedPlayers = playerScores.OrderByDescending(p => p.LastPlayed).Take(10);
+                        int rank = 1;
+                        foreach (var player in sortedPlayers)
+                        {
+                            Console.WriteLine($"{rank,-5} {player.Name,-20} {"Encrypted",-12} {player.LastPlayed:yyyy-MM-dd,-15}");
+                            rank++;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error reading local save files: {ex.Message}");
+                }
+            }
+            
+            Console.WriteLine();
+            Console.WriteLine("Press any key to return to main menu...");
+            Console.ReadKey();
         }
         
         static string? GetPasswordForSession()
@@ -111,7 +254,7 @@ namespace Game
             return password;
         }
         
-        static void StartGame()
+        static async Task StartGameAsync()
         {
             if (currentPlayerData == null || string.IsNullOrEmpty(currentPassword))
                 return;
@@ -146,8 +289,8 @@ namespace Game
                     stats.IncrementScore();
                     player.Stats = stats;
                     
-                    // Save progress
-                    AuthManager.SavePlayerProgress(currentPlayerData, currentPassword, stats.HighScore);
+                    // Save progress to MongoDB
+                    await AuthManager.SavePlayerProgressAsync(currentPlayerData, currentPassword, stats.HighScore);
                     
                     // Generate new map and reset player position
                     map = generator.GenerateDungeon(200, 50);
@@ -166,7 +309,7 @@ namespace Game
                     if (keyInfo.Key == ConsoleKey.Q && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Control))
                     {
                         // Save final progress before quitting
-                        AuthManager.SavePlayerProgress(currentPlayerData, currentPassword, player.Stats.HighScore);
+                        await AuthManager.SavePlayerProgressAsync(currentPlayerData, currentPassword, player.Stats.HighScore);
                         gameRunning = false;
                     }
                 }
